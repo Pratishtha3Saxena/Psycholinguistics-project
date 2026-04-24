@@ -1,0 +1,4 @@
+cue_category,perturbation_type,n,changed_prediction_rate,original_accuracy,perturbed_accuracy
+lexical_surface,lexical_surface_swap,20,0.05,0.7,0.65
+semantic_reasoning,selectional_paraphrase,20,0.05,0.6,0.55
+structural_discourse,structural_reordering,20,0.15,0.55,0.7

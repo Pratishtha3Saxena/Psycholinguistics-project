@@ -1,0 +1,7 @@
+cue_category,perturbation_type,n,changed_prediction_rate,original_accuracy,perturbed_accuracy
+lexical_surface,adjective_noticeability_manual,1,0.0,0.0,0.0
+lexical_surface,adjective_polarity_manual,1,0.0,1.0,1.0
+lexical_surface,adjective_size_manual,1,0.0,1.0,1.0
+semantic_reasoning,semantic_reasoning,3,0.3333333333333333,0.6666666666666666,0.3333333333333333
+structural_discourse,clause_reordering_manual,1,0.0,1.0,1.0
+structural_discourse,framing_change_manual,2,0.0,0.0,0.0

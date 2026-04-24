@@ -1,0 +1,35 @@
+Fast package for mid-eval
+
+Included files:
+1. psycholinguistics_curated_eval.py
+   - Runs the baseline on the frozen first 300 validation items.
+   - Optionally exports the frozen subset as CSV.
+   - Optionally evaluates a curated perturbation CSV.
+   - Keeps baseline and perturbations separate.
+
+2. winogrande_300_metadata_template.csv
+   - Label the frozen 300 items.
+   - Mark built-in contrast pairs and items safe for perturbation.
+
+3. curated_perturbation_seed_sheet.csv
+   - Small investigative starter set with 9 manually written perturbations:
+     * 3 semantic reasoning
+     * 3 lexical/surface
+     * 3 structural/discourse
+   - Validate each row before final analysis.
+
+Recommended immediate workflow:
+A. Run baseline:
+   python3 psycholinguistics_curated_eval.py --model bert-base-uncased --split validation --max-items 300 --output-dir outputs_curated --export-dataset-sheet
+
+B. Open curated_perturbation_seed_sheet.csv and mark:
+   grammar_valid, meaning_preserved, gold_preserved, keep_for_analysis, validator_notes
+
+C. Re-run with curated perturbations:
+   python3 psycholinguistics_curated_eval.py --model bert-base-uncased --split validation --max-items 300 --output-dir outputs_curated --curated-perturbations curated_perturbation_seed_sheet.csv --only-keep-validated
+
+Notes:
+- The perturbation seed sheet is intentionally small and quick, for investigative use before mid-eval.
+- If you have time, extend it to ~15-20 validated items per cue category.
+- Keep baseline on raw items only.
+- Keep dataset-internal contrast analysis separate from your own perturbations.
