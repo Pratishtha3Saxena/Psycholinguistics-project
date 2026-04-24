@@ -5,9 +5,10 @@ Example usage for reference (to change and copy paste before running):
 python3 psycholinguistics_pronoun_baseline.py \
   --model bert-base-uncased \
   --split validation \
-  --max-items 100 \
+  --max-items 300 \
   --run-perturbations \
   --output-dir outputs_baseline
+
 """
 
 from __future__ import annotations
@@ -126,9 +127,9 @@ def replace_blank(sentence: str, replacement: str) -> str:
 
 def load_winogrande_examples(split: str, max_items: Optional[int], seed: int) -> List[Example]:
     """
-    Loads the official WinoGrande dataset from Hugging Face datasets.
+    We load the official WinoGrande dataset from Hugging Face datasets.
 
-    Typical fields:
+    Reference fields for info:
     - sentence
     - option1
     - option2
@@ -137,9 +138,8 @@ def load_winogrande_examples(split: str, max_items: Optional[int], seed: int) ->
     """
     ds = load_dataset("winogrande", "winogrande_xl", split=split)
     rows = list(ds)
-    rng = random.Random(seed)
     if max_items is not None and max_items < len(rows):
-        rows = rng.sample(rows, k=max_items)
+        rows = rows[:max_items]
 
     examples: List[Example] = []
     for row in rows:
@@ -502,7 +502,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Baseline Winograd-style pronoun resolution with masked LM PLL scoring.")
     parser.add_argument("--model", type=str, default="bert-base-uncased", help="Hugging Face masked LM model name")
     parser.add_argument("--split", type=str, default="validation", help="Dataset split: train / validation / test")
-    parser.add_argument("--max-items", type=int, default=100, help="Random sample size from the chosen split")
+    parser.add_argument("--max-items", type=int, default=300, help="Number of items to take sequentially from the start of the split")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output-dir", type=str, default="outputs_baseline")
     parser.add_argument("--run-perturbations", action="store_true")
@@ -516,6 +516,12 @@ def parse_args() -> argparse.Namespace:
 
 
 
+def section(title: str) -> None:
+    print(f"\n{'='*60}")
+    print(f"  {title}")
+    print(f"{'='*60}")
+
+
 def main() -> None:
     args = parse_args()
     set_seed(args.seed)
@@ -526,12 +532,52 @@ def main() -> None:
     examples = load_winogrande_examples(args.split, args.max_items, args.seed)
     print(f"Loaded {len(examples)} examples")
 
+    # ------------------------------------------------------------------
+    # Print a few sample examples so we can verify the data looks right
+    # ------------------------------------------------------------------
+    section("SAMPLE LOADED EXAMPLES (first 5)")
+    for ex in examples[:5]:
+        print(f"\n  ID      : {ex.example_id}")
+        print(f"  Sentence: {ex.sentence}")
+        print(f"  Option 1: {ex.option1}")
+        print(f"  Option 2: {ex.option2}")
+        print(f"  Gold    : {ex.answer}")
+
     scorer = MaskedLMPLLScorer(model_name=args.model, device=device)
     baseline_results = evaluate_baseline(examples, scorer)
     base_stats = baseline_summary(baseline_results)
 
-    print("\nBaseline summary")
+    section("BASELINE SUMMARY")
     print(json.dumps(base_stats, indent=2))
+
+    # INFO: Printing for manual inspection purpoeses
+    correct_results   = [r for r in baseline_results if r.correct]
+    incorrect_results = [r for r in baseline_results if not r.correct]
+
+    section("SAMPLE CORRECT PREDICTIONS (first 5)")
+    for r in correct_results[:5]:
+        print(f"\n  Sentence : {r.sentence}")
+        print(f"  Cand 1   : {r.candidate1_text}  [PLL: {r.candidate1_pll:.2f}]")
+        print(f"  Cand 2   : {r.candidate2_text}  [PLL: {r.candidate2_pll:.2f}]")
+        print(f"  Gold: {r.gold}  |  Predicted: {r.predicted}  ✓")
+
+    section("SAMPLE INCORRECT PREDICTIONS (first 5)")
+    for r in incorrect_results[:5]:
+        print(f"\n  Sentence : {r.sentence}")
+        print(f"  Cand 1   : {r.candidate1_text}  [PLL: {r.candidate1_pll:.2f}]")
+        print(f"  Cand 2   : {r.candidate2_text}  [PLL: {r.candidate2_pll:.2f}]")
+        print(f"  Gold: {r.gold}  |  Predicted: {r.predicted}  ✗")
+
+    # INFO: PLL score gap distribution- how confident are correct vs wrong calls
+    section("PLL SCORE GAP (|cand1_pll - cand2_pll|)")
+    gaps_correct   = [abs(r.candidate1_pll - r.candidate2_pll) for r in correct_results]
+    gaps_incorrect = [abs(r.candidate1_pll - r.candidate2_pll) for r in incorrect_results]
+    if gaps_correct:
+        print(f"  Correct predictions   — mean gap: {sum(gaps_correct)/len(gaps_correct):.2f}  "
+              f"min: {min(gaps_correct):.2f}  max: {max(gaps_correct):.2f}")
+    if gaps_incorrect:
+        print(f"  Incorrect predictions — mean gap: {sum(gaps_incorrect)/len(gaps_incorrect):.2f}  "
+              f"min: {min(gaps_incorrect):.2f}  max: {max(gaps_incorrect):.2f}")
 
     perturbation_results: List[PerturbationResult] = []
     if args.run_perturbations:
@@ -542,8 +588,35 @@ def main() -> None:
             max_items_for_perturbation=args.max_perturb_items,
         )
         if perturbation_results:
-            print("\nPerturbation summary")
+            section("PERTURBATION AGGREGATE SUMMARY")
             print(perturbation_summary(perturbation_results).to_string(index=False))
+
+
+            # INFO: Few Cases where pertubation flipped for each pertubation type 
+            perturb_df = pd.DataFrame(asdict(r) for r in perturbation_results)
+            flipped_df = perturb_df[perturb_df["changed_prediction"] == True]
+
+            section("SAMPLE PREDICTION FLIPS BY PERTURBATION TYPE")
+            for ptype in perturb_df["perturbation_type"].unique():
+                subset = flipped_df[flipped_df["perturbation_type"] == ptype].head(3)
+                print(f"\n  -- {ptype} ({len(flipped_df[flipped_df['perturbation_type']==ptype])} flips total) --")
+                if subset.empty:
+                    print("  (no flips for this type)")
+                    continue
+                for _, row in subset.iterrows():
+                    print(f"\n    Original : {row['original_sentence']}")
+                    print(f"    Perturbed: {row['perturbed_sentence']}")
+                    print(f"    Gold: {row['gold']}  |  {row['original_predicted']} → {row['perturbed_predicted']}"
+                          f"  ({'was correct, now wrong' if row['original_correct'] and not row['perturbed_correct'] else 'was wrong, now correct' if not row['original_correct'] and row['perturbed_correct'] else 'correctness unchanged'})")
+
+            # INFO: Few cases where pert. did not flip for each pertubation type (stability examples)
+            stable_df = perturb_df[perturb_df["changed_prediction"] == False]
+            section("SAMPLE STABLE PREDICTIONS (perturbation had no effect, first 5)")
+            for _, row in stable_df.head(5).iterrows():
+                print(f"\n  [{row['perturbation_type']}]")
+                print(f"  Original : {row['original_sentence']}")
+                print(f"  Perturbed: {row['perturbed_sentence']}")
+                print(f"  Prediction held at: {row['original_predicted']}  (Gold: {row['gold']})")
         else:
             print("\nNo valid perturbation results were generated.")
 

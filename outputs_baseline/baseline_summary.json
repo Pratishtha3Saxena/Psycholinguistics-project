@@ -1,5 +1,5 @@
 {
-  "n_items": 100,
-  "n_correct": 59,
-  "accuracy": 0.59
+  "n_items": 300,
+  "n_correct": 150,
+  "accuracy": 0.5
 }
