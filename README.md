@@ -66,7 +66,7 @@
 Psycholinguistics-project/
 ├── Main_model/
 │   ├── final_model.ipynb          # Final experiment notebook (RoBERTa + GPT-2 + Centering)
-│   └── main_model.ipynb           # Development notebook with RoBERTa-large tests
+│   └── main_model.ipynb           # Development notebook with ngram, Bert and RoBERTa-large tests
 ├── Ngram-Baseline/
 │   ├── baseline_experiment.ipynb  # Trigram implementation
 │   └── baseline_experiment_v2.ipynb # Baseline on frozen 300 items
