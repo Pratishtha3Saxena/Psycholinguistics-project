@@ -61,6 +61,8 @@
 * [cite_start]**Statistical Significance**: Mann-Whitney U test ($p=0.0006$)[cite: 123].
 
 ## Repository Structure
+
+```text
 Psycholinguistics-project/
 ├── Main_model/
 │   ├── final_model.ipynb          # Final experiment notebook (RoBERTa + GPT-2 + Centering)
